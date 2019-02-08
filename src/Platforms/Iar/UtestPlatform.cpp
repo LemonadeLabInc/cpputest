@@ -101,13 +101,35 @@ void (*PlatformSpecificRestoreJumpBuffer)() = PlatformSpecificRestoreJumpBufferI
 
 ///////////// Time in millis
 
+#define DEMCR_TRCENA    0x01000000
+
+/* Core Debug registers */
+#define DEMCR           (*(volatile uint32_t *)0xE000EDFC)
+#define DWT_CTRL        (*(volatile uint32_t *)0xE0001000)
+#define CYCCNTENA       (1<<0)
+#define DWT_CYCCNT      ((volatile uint32_t *)0xE0001004)
+
+static int initialized = 0;
+static uint32_t start;
+extern uint32_t SystemCoreClock;
+
 static long TimeInMillisImplementation()
 {
-    clock_t t = clock();
+	if (initialized == 0) {
+		DEMCR |= DEMCR_TRCENA;
+		*DWT_CYCCNT = 0;
+		/* Enable CPU cycle counter */
+		DWT_CTRL |= CYCCNTENA;
 
-    t = t * 10;
+		start = *DWT_CYCCNT;
 
-    return t;
+		initialized = 1;
+	}
+
+
+	float ticks = *DWT_CYCCNT - start;
+	float dt = ticks/SystemCoreClock * 1000; // ms
+	return dt;
 }
 
 ///////////// Time in String
